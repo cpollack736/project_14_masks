@@ -34,12 +34,32 @@ comparator_2021 <- fread("2021_comparator_final.csv")
 mask_2021 <- fread("2021_mask_final.csv") #May 13th discontinuity
 ```
 
+# Filtering to Only a 14 Day Window
+```{r}
+mask_2021_filtered <- mask_2021 %>%
+  dplyr::filter(date_EST <= as.Date("2021-05-13") + 14 &
+           date_EST >= as.Date("2021-05-13") - 14)
+
+comparator_2021_filtered <- comparator_2021 %>%
+  dplyr::filter(date_EST <= as.Date("2021-05-13") + 14 &
+           date_EST >= as.Date("2021-05-13") - 14)
+
+mask_2020_filtered <- mask_2020 %>%
+  dplyr::filter(date_EST <= as.Date("2020-04-03") + 14 &
+           date_EST >= as.Date("2020-04-03") - 14)
+
+comparator_2020_filtered <- comparator_2020 %>%
+  dplyr::filter(date_EST <= as.Date("2020-04-03") + 14 &
+           date_EST >= as.Date("2020-04-03") - 14)
+
+```
+
 # Discontinuity Analysis - Sentiment
 
 ## Plotting - Average Daily Sentiment Only
 2021
 ```{r}
-mask_2021_date_sentiment_only <- mask_2021 %>%
+mask_2021_date_sentiment_only <- mask_2021_filtered %>%
   group_by(date_EST) %>%
   summarise(daily_sentiment = mean(sentiment_score)) %>%
   ungroup() %>%
@@ -55,8 +75,9 @@ mask_2021_date_sentiment_only %>%
   geom_vline(xintercept = as.Date("2021-05-13")) + 
   scale_color_npg() + 
   annotate("text",
-           x = as.Date("2021-05-24"),
-           y = 0.05,
+           x = as.Date("2021-05-13"),
+           y = -0.05,
+           hjust = 0,
            label = "CDC Lifts Mask Mandate\nfor Vaccinated Individuals") +
   theme_classic() +
   theme(legend.position = "bottom") + 
@@ -70,7 +91,7 @@ ggsave("211011_date_vadersentiment_overall.tiff", width = 7.25, height = 4.51)
 
 2020
 ```{r}
-mask_2020_date_sentiment_only <- mask_2020 %>%
+mask_2020_date_sentiment_only <- mask_2020_filtered %>%
   group_by(date_EST) %>%
   summarise(daily_sentiment = mean(sentiment_score)) %>%
   ungroup() %>%
@@ -87,7 +108,7 @@ mask_2020_date_sentiment_only %>%
   scale_color_npg() + 
   annotate("text",
            x = as.Date("2020-04-03"),
-           y = 0.15,
+           y = 0.12,
            hjust = 0,
            label = "CDC Implements Mask Mandate") +
   theme_classic() +
@@ -97,13 +118,13 @@ mask_2020_date_sentiment_only %>%
        y = "Average Compound Sentiment Score",
        color = "Time Period")
 setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
-ggsave("211118_date_vadersentiment_overall_2020.tiff", width = 7.25, height = 4.51)
+ggsave("220322_date_vadersentiment_overall_2020.tiff", width = 7.25, height = 4.51)
 ```
 
 ## Plotting - Average Daily Sentiment Comparator
 2021
 ```{r}
-comparator_2021_date_sentiment_only <- comparator_2021 %>%
+comparator_2021_date_sentiment_only <- comparator_2021_filtered %>%
   group_by(date_EST) %>%
   summarise(daily_sentiment = mean(sentiment_score)) %>%
   ungroup() %>%
@@ -138,25 +159,26 @@ masks_comparator_2021_date_sentiment_only %>%
   scale_y_continuous(limits = c(-0.10, 0.125)) + 
   scale_color_npg() +
   annotate("text",
-           x = as.Date("2021-05-24"),
+           x = as.Date("2021-05-13"),
+           hjust = 0,
            y = 0.110,
            label = "CDC Lifts Mask Mandate\nfor Vaccinated Individuals") +
   theme_classic() +
-  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
   guides(color = guide_legend(nrow=2,
                            byrow=TRUE)) + 
   labs(title = "Daily Change in Compound Sentiment Score",
        x = "Date",
-       y = "Average Compound Sentiment Score",
-       color = "Data Set - Time Period")
-setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
-ggsave("211011_date_vadersentiment_overall_withcomparator.tiff", width = 7.25, height = 4.51)
+       y = "Average Compound Sentiment Score")
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_vadersentiment_overall_withcomparator.tiff", width = 7.25, height = 4.51)
 
 ```
 
 2020
 ```{r}
-comparator_2020_date_sentiment_only <- comparator_2020 %>%
+comparator_2020_date_sentiment_only <- comparator_2020_filtered %>%
   group_by(date_EST) %>%
   summarise(daily_sentiment = mean(sentiment_score)) %>%
   ungroup() %>%
@@ -194,15 +216,15 @@ masks_comparator_2020_date_sentiment_only %>%
            hjust = 0,
            label = "CDC Implements Mask Mandate") +
   theme_classic() +
-  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
   guides(color = guide_legend(nrow=2,
                            byrow=TRUE)) + 
   labs(title = "Daily Change in Compound Sentiment Score",
        x = "Date",
-       y = "Average Compound Sentiment Score",
-       color = "Data Set - Time Period")
+       y = "Average Compound Sentiment Score")
 setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
-ggsave("211118_date_vadersentiment_overall_withcomparator_2020.tiff", width = 7.25, height = 4.51)
+ggsave("220322_date_vadersentiment_overall_withcomparator_2020.tiff", width = 7.25, height = 4.51)
 
 ```
 
@@ -221,7 +243,7 @@ masks_comparator_2021_date_sentiment_only %<>%
       TRUE ~ as.numeric(time_after_counter)))
 
 lm(daily_sentiment ~ date_EST + pre_post_indicator + time_after_counter,
-   data = filter(masks_comparator_2021_date_sentiment_only,
+   data = dplyr::filter(masks_comparator_2021_date_sentiment_only,
                  data_set == "Masks")) %>%
   tidy(conf.int = TRUE) %>%
   select(term, estimate, conf.low, conf.high, p.value)
@@ -260,7 +282,7 @@ lm(daily_sentiment ~ data_set + date_EST + pre_post_indicator + time_after_count
 ## Plotting - Percent of Tweets with a Given Sentiment
 2021
 ```{r}
-mask_2021_date_sentiment_category_only <- mask_2021 %>%
+mask_2021_date_sentiment_category_only <- mask_2021_filtered %>%
   group_by(date_EST) %>%
   mutate(denominator = n()) %>%
   group_by(date_EST, sentiment_polarity) %>%
@@ -312,13 +334,13 @@ mask_2021_date_sentiment_category_only %>%
        x = "Date",
        y = "Percent (%)",
        color = "Sentiment - Time Period")
-setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
-ggsave("211011_date_vadersentiment_percents_overall.tiff", width = 7.25, height = 4.51)
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_vadersentiment_percents_overall.tiff", width = 7.25, height = 4.51)
 ```
 
 2020
 ```{r}
-mask_2020_date_sentiment_category_only <- mask_2020 %>%
+mask_2020_date_sentiment_category_only <- mask_2020_filtered %>%
   group_by(date_EST) %>%
   mutate(denominator = n()) %>%
   group_by(date_EST, sentiment_polarity) %>%
@@ -364,21 +386,21 @@ mask_2020_date_sentiment_category_only %>%
                                  "#FF9D9A",
                                  "#E15759")) +
   theme_classic() +
-  theme(legend.position = "bottom") + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) + 
   guides(color = guide_legend(nrow=3,
                            byrow=TRUE)) + 
   labs(title = "Daily Change in Percent of Tweets Labeled as Positive, Negative, or Neutral",
        x = "Date",
-       y = "Percent (%)",
-       color = "Sentiment - Time Period")
+       y = "Percent (%)")
 setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
-ggsave("211118_date_vadersentiment_percents_overall_2020.tiff", width = 7.25, height = 4.51)
+ggsave("220322_date_vadersentiment_percents_overall_2020.tiff", width = 7.25, height = 4.51)
 ```
 
 ## Plotting - Percent of Tweets with a Given Sentiment with Comparator Data
 2021
 ```{r}
-comparator_2021_date_sentiment_category_only <- comparator_2021 %>%
+comparator_2021_date_sentiment_category_only <- comparator_2021_filtered %>%
   group_by(date_EST) %>%
   mutate(denominator = n()) %>%
   group_by(date_EST, sentiment_polarity) %>%
@@ -438,14 +460,14 @@ mask_comparator_2021_date_sentiment_category_only %>%
        x = "Date",
        y = "Percent (%)",
        color = "Sentiment - Time Period")
-setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
-ggsave("211011_date_vadersentiment_percents_overall_withcomparator.tiff", width = 7.25, height = 4.51)
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_vadersentiment_percents_overall_withcomparator.tiff", width = 7.25, height = 4.51)
 
 ```
 
 2020
 ```{r}
-comparator_2020_date_sentiment_category_only <- comparator_2020 %>%
+comparator_2020_date_sentiment_category_only <- comparator_2020_filtered %>%
   group_by(date_EST) %>%
   mutate(denominator = n()) %>%
   group_by(date_EST, sentiment_polarity) %>%
@@ -485,10 +507,10 @@ mask_comparator_2020_date_sentiment_category_only %>%
   geom_vline(xintercept = as.Date("2020-04-03")) + 
   annotate("text",
            x = as.Date("2020-04-03"),
-           y = 55,
+           y = 50,
            hjust = 0,
            label = "CDC Implements Mask Mandate",
-           size = 3) +
+           size = 2.75) +
   facet_wrap(~data_set) + 
   #scale_y_continuous(limits = c(10, 65)) +
   scale_color_manual(values = c("#8CD17D",
@@ -498,7 +520,8 @@ mask_comparator_2020_date_sentiment_category_only %>%
                                  "#FF9D9A",
                                  "#E15759")) +
   theme_classic() +
-  theme(legend.position = "bottom") + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) + 
   guides(color = guide_legend(nrow=3,
                            byrow=TRUE)) + 
   labs(title = "Daily Change in Percent of Tweets Labeled as Positive, Negative, or Neutral",
@@ -506,7 +529,7 @@ mask_comparator_2020_date_sentiment_category_only %>%
        y = "Percent (%)",
        color = "Sentiment - Time Period")
 setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
-ggsave("211118_date_vadersentiment_percents_overall_withcomparator_2020.tiff", width = 7.25, height = 4.51)
+ggsave("220323_date_vadersentiment_percents_overall_withcomparator_2020.jpg", width = 7.25, height = 4.51)
 
 ```
 
@@ -531,45 +554,45 @@ mask_comparator_2021_date_sentiment_category_only %<>%
 
 ## Sentiment-Specific Models (Masks Only)
 lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
-   data = filter(mask_comparator_2021_date_sentiment_category_only,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
                  data_set == "Masks" & sentiment_polarity == "Positive")) %>%
   tidy(conf.int = TRUE) %>%
   select(term, estimate, conf.low, conf.high, p.value)
 
 lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
-   data = filter(mask_comparator_2021_date_sentiment_category_only,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
                  data_set == "Masks" & sentiment_polarity == "Neutral")) %>%
   tidy(conf.int = TRUE) %>%
   select(term, estimate, conf.low, conf.high, p.value)
 
 lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
-   data = filter(mask_comparator_2021_date_sentiment_category_only,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
                  data_set == "Masks" & sentiment_polarity == "Negative")) %>%
   tidy(conf.int = TRUE) %>%
   select(term, estimate, conf.low, conf.high, p.value)
 
 ## Sentiment-General Models (Masks Only)
 lm(percent_sentiment_per_day ~ sentiment_polarity + date_EST + pre_post_indicator + time_after_counter,
-   data = filter(mask_comparator_2021_date_sentiment_category_only,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
                  data_set == "Masks")) %>%
   tidy(conf.int = TRUE) %>%
   select(term, estimate, conf.low, conf.high, p.value)
 
 ## Sentiment-Specific Models (with Comparator)
 lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
-   data = filter(mask_comparator_2021_date_sentiment_category_only,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
                  sentiment_polarity == "Positive")) %>%
   tidy(conf.int = TRUE) %>%
   select(term, estimate, conf.low, conf.high, p.value)
 
 lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
-   data = filter(mask_comparator_2021_date_sentiment_category_only,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
                  sentiment_polarity == "Neutral")) %>%
   tidy(conf.int = TRUE) %>%
   select(term, estimate, conf.low, conf.high, p.value)
 
 lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
-   data = filter(mask_comparator_2021_date_sentiment_category_only,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
                  sentiment_polarity == "Negative")) %>%
   tidy(conf.int = TRUE) %>%
   select(term, estimate, conf.low, conf.high, p.value)
@@ -639,7 +662,7 @@ lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_a
 ## Plotting - Daily Number of Mask Tweets
 2021
 ```{r}
-mask_2021_daily_count_only <- mask_2021 %>%
+mask_2021_daily_count_only <- mask_2021_filtered %>%
   group_by(date_EST) %>%
   summarise(count_per_day = n()) %>%
   mutate(before_after_indicator = case_when(
@@ -664,13 +687,13 @@ mask_2021_daily_count_only %>%
        x = "Date",
        y = "Number of Tweets",
        color = "Time Relative to Mask Mandate")
-setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
-ggsave("211129_date_numberoftweets.tiff", width = 7.25, height = 4.51)
+#setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
+#ggsave("211129_date_numberoftweets.tiff", width = 7.25, height = 4.51)
 ```
 
 2020
 ```{r}
-mask_2020_daily_count_only <- mask_2020 %>%
+mask_2020_daily_count_only <- mask_2020_filtered %>%
   group_by(date_EST) %>%
   summarise(count_per_day = n()) %>%
   mutate(before_after_indicator = case_when(
@@ -696,15 +719,15 @@ mask_2020_daily_count_only %>%
        x = "Date",
        y = "Number of Tweets",
        color = "Time Relative to Mask Mandate")
-setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
-ggsave("211118_date_numberoftweets_2020.tiff", width = 7.25, height = 4.51)
+#setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+#ggsave("211118_date_numberoftweets_2020.tiff", width = 7.25, height = 4.51)
 ```
 
 # Discontinuity Analysis - Emotion
 ## Plotting - Average Daily Emotion Only
 2021
 ```{r}
-mask_2021_date_emotion_only <- mask_2021 %>%
+mask_2021_date_emotion_only <- mask_2021_filtered %>%
   select(date_EST, anger_total, anticipation_total, disgust_total, fear_total, trust_total, surprise_total, joy_total, sadness_total) %>%
   melt(id = "date_EST") %>%
   group_by(date_EST, variable) %>%
@@ -747,14 +770,13 @@ mask_2021_date_emotion_only %>%
        x = "Date",
        y = "Emotion Score (Sum of Words Tagged a Given Emotion)",
        color = "Time Period")
-setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
-ggsave("211011_date_emotion_overall.tiff", width = 7.25, height = 4.51)
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_emotion_overall.tiff", width = 7.25, height = 4.51)
 ```
 
 2020
 ```{r}
-```{r}
-mask_2020_date_emotion_only <- mask_2020 %>%
+mask_2020_date_emotion_only <- mask_2020_filtered %>%
   select(date_EST, anger_total, anticipation_total, disgust_total, fear_total, trust_total, surprise_total, joy_total, sadness_total) %>%
   melt(id = "date_EST") %>%
   group_by(date_EST, variable) %>%
@@ -797,13 +819,13 @@ mask_2020_date_emotion_only %>%
        y = "Emotion Score (Sum of Words Tagged a Given Emotion)",
        color = "Time Period")
 setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
-ggsave("211118_date_emotion_overall_2020.tiff", width = 7.25, height = 4.51)
+ggsave("220322_date_emotion_overall_2020.tiff", width = 7.25, height = 4.51)
 ```
 
 ## Plotting - Average Daily Sentiment Comparator
 2021
 ```{r}
-comparator_2021_date_emotion_only <- comparator_2021 %>%
+comparator_2021_date_emotion_only <- comparator_2021_filtered %>%
   select(date_EST, anger_total, anticipation_total, disgust_total, fear_total, trust_total, surprise_total, joy_total, sadness_total) %>%
   melt(id = "date_EST") %>%
   group_by(date_EST, variable) %>%
@@ -856,14 +878,14 @@ masks_comparator_2021_date_emotion_only %>%
        x = "Date",
        y = "Emotion Score (Sum of Tagged Words with Given Emotion)",
        color = "Data Set - Time Period")
-setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
-ggsave("211011_date_emotion_overall_withcomparator.tiff", width = 7.25, height = 4.51)
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_emotion_overall_withcomparator.tiff", width = 7.25, height = 4.51)
 
 ```
 
 2020
 ```{r}
-comparator_2020_date_emotion_only <- comparator_2020 %>%
+comparator_2020_date_emotion_only <- comparator_2020_filtered %>%
   select(date_EST, anger_total, anticipation_total, disgust_total, fear_total, trust_total, surprise_total, joy_total, sadness_total) %>%
   melt(id = "date_EST") %>%
   group_by(date_EST, variable) %>%
@@ -917,7 +939,7 @@ masks_comparator_2020_date_emotion_only %>%
        y = "Emotion Score (Sum of Tagged Words with Given Emotion)",
        color = "Data Set - Time Period")
 setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
-ggsave("211118_date_emotion_overall_withcomparator_2020.tiff", width = 7.25, height = 4.51)
+ggsave("220322_date_emotion_overall_withcomparator_2020.tiff", width = 7.25, height = 4.51)
 
 ```
 
