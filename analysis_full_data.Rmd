@@ -1,0 +1,1004 @@
+---
+title: "Analysis_Round2"
+author: "Catherine C. Pollack"
+date: "10/11/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Libraries 
+```{r}
+library(tidyverse)
+library(data.table)
+library(ggsci)
+library(magrittr)
+library(broom)
+library(tools)
+library(fUnitRoots)
+library(forecast)
+library(zoo)
+library(TSA)
+```
+
+# Bring in Data
+```{r}
+setwd("~/Documents/dispersed_volunteer_research_network/project_14/data")
+comparator_2020 <- fread("2020_comparator_final_v2.csv")
+mask_2020 <- fread("2020_mask_final_v2.csv") #April 3rd Discontinuity
+
+setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Data")
+comparator_2021 <- fread("2021_comparator_final.csv")
+mask_2021 <- fread("2021_mask_final.csv") #May 13th discontinuity
+```
+
+# Discontinuity Analysis - Sentiment
+
+## Plotting - Average Daily Sentiment Only
+2021
+```{r}
+mask_2021_date_sentiment_only <- mask_2021 %>%
+  group_by(date_EST) %>%
+  summarise(daily_sentiment = mean(sentiment_score)) %>%
+  ungroup() %>%
+  mutate(date_indicator = ifelse(date_EST >= as.Date("2021-05-13"), "After Mask Mandate Lifted", "Before Mask Mandate Lifted"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Mandate Lifted",
+                                                            "After Mask Mandate Lifted")))
+mask_2021_date_sentiment_only %>%
+  ggplot(aes(x = date_EST,
+             y = daily_sentiment,
+             color = date_indicator)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = as.Date("2021-05-13")) + 
+  scale_color_npg() + 
+  annotate("text",
+           x = as.Date("2021-05-13"),
+           y = -0.05,
+           hjust = 0,
+           label = "CDC Lifts Mask Mandate\nfor Vaccinated Individuals") +
+  theme_classic() +
+  theme(legend.position = "bottom") + 
+  labs(title = "Daily Change in Compound Sentiment Score",
+       x = "Date",
+       y = "Average Compound Sentiment Score",
+       color = "Time Period")
+#setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
+#ggsave("211011_date_vadersentiment_overall.tiff", width = 7.25, height = 4.51)
+```
+
+2020
+```{r}
+mask_2020_date_sentiment_only <- mask_2020 %>%
+  group_by(date_EST) %>%
+  summarise(daily_sentiment = mean(sentiment_score)) %>%
+  ungroup() %>%
+  mutate(date_indicator = ifelse(date_EST >= as.Date("2020-04-03"), "After Mask Mandate Implemented", "Before Mask Mandate Implemented"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Mandate Implemented",
+                                                            "After Mask Mandate Implemented")))
+mask_2020_date_sentiment_only %>%
+  ggplot(aes(x = date_EST,
+             y = daily_sentiment,
+             color = date_indicator)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = as.Date("2020-04-03")) + 
+  scale_color_npg() + 
+  annotate("text",
+           x = as.Date("2020-04-03"),
+           y = 0.12,
+           hjust = 0,
+           label = "CDC Implements Mask Mandate") +
+  theme_classic() +
+  theme(legend.position = "bottom") + 
+  labs(title = "Daily Change in Compound Sentiment Score",
+       x = "Date",
+       y = "Average Compound Sentiment Score",
+       color = "Time Period")
+#setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+#ggsave("220322_date_vadersentiment_overall_2020.tiff", width = 7.25, height = 4.51)
+```
+
+## Plotting - Average Daily Sentiment Comparator
+2021
+```{r}
+comparator_2021_date_sentiment_only <- comparator_2021 %>%
+  group_by(date_EST) %>%
+  summarise(daily_sentiment = mean(sentiment_score)) %>%
+  ungroup() %>%
+  mutate(date_indicator = ifelse(date_EST >= as.Date("2021-05-13"), 
+                                 "After Mask Mandate Lifted", 
+                                 "Before Mask Mandate Lifted"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Mandate Lifted",
+                                                            "After Mask Mandate Lifted")))
+
+mask_2021_date_sentiment_only$data_set <- "Masks"
+comparator_2021_date_sentiment_only$data_set <- "Comparator"
+
+masks_comparator_2021_date_sentiment_only <- as.data.frame(rbind(mask_2021_date_sentiment_only,
+                                                                 comparator_2021_date_sentiment_only))
+
+masks_comparator_2021_date_sentiment_only %>%
+  unite("indicator_data_combo",
+        data_set,
+        date_indicator,
+        sep = " - ",
+        remove = FALSE) %>%
+  mutate(indicator_data_combo = factor(indicator_data_combo, levels = c("Masks - Before Mask Mandate Lifted",
+                                                                        "Masks - After Mask Mandate Lifted",
+                                                                        "Comparator - Before Mask Mandate Lifted",
+                                                                        "Comparator - After Mask Mandate Lifted"))) %>%
+  ggplot(aes(x = date_EST,
+             y = daily_sentiment,
+             color = indicator_data_combo)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  geom_vline(xintercept = as.Date("2021-05-13")) + 
+  scale_y_continuous(limits = c(-0.10, 0.125)) + 
+  scale_color_npg() +
+  annotate("text",
+           x = as.Date("2021-05-13"),
+           hjust = 0,
+           y = 0.110,
+           label = "CDC Lifts Mask Mandate\nfor Vaccinated Individuals") +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(nrow=2,
+                           byrow=TRUE)) + 
+  labs(title = "Daily Change in Compound Sentiment Score",
+       x = "Date",
+       y = "Average Compound Sentiment Score")
+#setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+#ggsave("220322_date_vadersentiment_overall_withcomparator.tiff", width = 7.25, height = 4.51)
+```
+
+2020
+```{r}
+comparator_2020_date_sentiment_only <- comparator_2020 %>%
+  group_by(date_EST) %>%
+  summarise(daily_sentiment = mean(sentiment_score)) %>%
+  ungroup() %>%
+  mutate(date_indicator = ifelse(date_EST >= as.Date("2020-04-03"), 
+                                 "After Mask Mandate Implemented", 
+                                 "Before Mask Mandate Implemented"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Mandate Implemented",
+                                                            "After Mask Mandate Implemented")))
+
+mask_2020_date_sentiment_only$data_set <- "Masks"
+comparator_2020_date_sentiment_only$data_set <- "Comparator"
+
+masks_comparator_2020_date_sentiment_only <- as.data.frame(rbind(mask_2020_date_sentiment_only, comparator_2020_date_sentiment_only))
+
+masks_comparator_2020_date_sentiment_only %>%
+  unite("indicator_data_combo",
+        data_set,
+        date_indicator,
+        sep = " - ",
+        remove = FALSE) %>%
+  mutate(indicator_data_combo = factor(indicator_data_combo, levels = c("Masks - Before Mask Mandate Implemented",
+                                                                        "Masks - After Mask Mandate Implemented",
+                                                                        "Comparator - Before Mask Mandate Implemented",
+                                                                        "Comparator - After Mask Mandate Implemented"))) %>%
+  ggplot(aes(x = date_EST,
+             y = daily_sentiment,
+             color = indicator_data_combo)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  geom_vline(xintercept = as.Date("2020-04-03")) + 
+  scale_color_npg() +
+  annotate("text",
+           x = as.Date("2020-04-03"),
+           y = 0.15,
+           hjust = 0,
+           label = "CDC Implements Mask Mandate") +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  guides(color = guide_legend(nrow=2,
+                           byrow=TRUE)) + 
+  labs(title = "Daily Change in Compound Sentiment Score",
+       x = "Date",
+       y = "Average Compound Sentiment Score")
+#setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+#ggsave("220322_date_vadersentiment_overall_withcomparator_2020.tiff", width = 7.25, height = 4.51)
+```
+
+## Modeling - Change in Average Daily Compound Sentiment Score Over Time
+2021
+```{r}
+masks_comparator_2021_date_sentiment_only %<>%
+  mutate(pre_post_indicator = case_when(
+    date_EST >= as.Date("2021-05-13") ~ 1,
+    TRUE ~ 0),
+    time_after_counter = difftime(date_EST, 
+                                  as.Date("2021-05-13"),
+                                  units = "days"),
+    time_after_counter = case_when(
+      time_after_counter < 0 ~ 0,
+      TRUE ~ as.numeric(time_after_counter)))
+
+lm(daily_sentiment ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(masks_comparator_2021_date_sentiment_only,
+                 data_set == "Masks")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(daily_sentiment ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = masks_comparator_2021_date_sentiment_only) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+```
+
+2020
+```{r}
+masks_comparator_2020_date_sentiment_only %<>%
+  mutate(pre_post_indicator = case_when(
+    date_EST >= as.Date("2020-04-03") ~ 1,
+    TRUE ~ 0),
+    time_after_counter = difftime(date_EST, 
+                                  as.Date("2020-04-03"),
+                                  units = "days"),
+    time_after_counter = case_when(
+      time_after_counter < 0 ~ 0,
+      TRUE ~ as.numeric(time_after_counter)))
+
+lm(daily_sentiment ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(masks_comparator_2020_date_sentiment_only,
+                 data_set == "Masks")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(daily_sentiment ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = masks_comparator_2020_date_sentiment_only) %>%
+  tidy(conf.int = TRUE) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)
+```
+
+## Plotting - Percent of Tweets with a Given Sentiment
+2021
+```{r}
+mask_2021_date_sentiment_category_only <- mask_2021 %>%
+  group_by(date_EST) %>%
+  mutate(denominator = n()) %>%
+  group_by(date_EST, sentiment_polarity) %>%
+  summarise(sentiment_per_day = n(),
+            percent_sentiment_per_day = sentiment_per_day/denominator*100) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(sentiment_polarity = toTitleCase(sentiment_polarity),
+         date_indicator = ifelse(date_EST >= as.Date("2021-05-13"), 
+                                 "After Mask Relaxation Policy", 
+                                 "Before Mask Relaxation Policy"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Relaxation Policy",
+                                                            "After Mask Relaxation Policy"))) %>%
+  unite("sentiment_date_combo",
+        sentiment_polarity,
+        date_indicator,
+        sep = " - ",
+        remove = FALSE) %>%
+  mutate(sentiment_date_combo = factor(sentiment_date_combo,
+                                       levels = c("Positive - Before Mask Relaxation Policy",
+                                                  "Positive - After Mask Relaxation Policy",
+                                                  "Neutral - Before Mask Relaxation Policy",
+                                                  "Neutral - After Mask Relaxation Policy",
+                                                  "Negative - Before Mask Relaxation Policy",
+                                                  "Negative - After Mask Relaxation Policy")))
+mask_2021_date_sentiment_category_only %>%
+  ggplot(aes(x = date_EST,
+      y = percent_sentiment_per_day,
+      color = sentiment_date_combo)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = as.Date("2021-05-13")) + 
+  annotate("text",
+           x = as.Date("2021-05-24"),
+           y = 60,
+           label = "CDC Lifts Mask Mandate\nfor Vaccinated Individuals") +
+  scale_y_continuous(limits = c(10, 65)) +
+  scale_color_manual(values = c("#8CD17D",
+                                 "#59A14F",
+                                 "#A0CBE8",
+                                 "#4E79A7",
+                                 "#FF9D9A",
+                                 "#E15759")) +
+  theme_classic() +
+  theme(legend.position = "bottom") + 
+  guides(color = guide_legend(nrow=3,
+                           byrow=TRUE)) + 
+  labs(title = "Daily Change in Percent of Tweets Labeled as Positive, Negative, or Neutral",
+       x = "Date",
+       y = "Percent (%)",
+       color = "Sentiment - Time Period")
+#setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+#ggsave("220322_date_vadersentiment_percents_overall.tiff", width = 7.25, height = 4.51)
+```
+
+2020
+```{r}
+mask_2020_date_sentiment_category_only <- mask_2020 %>%
+  group_by(date_EST) %>%
+  mutate(denominator = n()) %>%
+  group_by(date_EST, sentiment_polarity) %>%
+  summarise(sentiment_per_day = n(),
+            percent_sentiment_per_day = sentiment_per_day/denominator*100) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(sentiment_polarity = toTitleCase(sentiment_polarity),
+         date_indicator = ifelse(date_EST >= as.Date("2020-04-03"), 
+                                 "After Mask Recommendation Policy", 
+                                 "Before Mask Recommendation Policy"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Recommendation Policy",
+                                                            "After Mask Recommendation Policy"))) %>%
+  unite("sentiment_date_combo",
+        sentiment_polarity,
+        date_indicator,
+        sep = " - ",
+        remove = FALSE) %>%
+  mutate(sentiment_date_combo = factor(sentiment_date_combo,
+                                       levels = c("Positive - Before Mask Recommendation Policy",
+                                                  "Positive - After Mask Recommendation Policy",
+                                                  "Neutral - Before Mask Recommendation Policy",
+                                                  "Neutral - After Mask Recommendation Policy",
+                                                  "Negative - Before Mask Recommendation Policy",
+                                                  "Negative - After Mask Recommendation Policy")))
+mask_2020_date_sentiment_category_only %>%
+  ggplot(aes(x = date_EST,
+      y = percent_sentiment_per_day,
+      color = sentiment_date_combo)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = as.Date("2020-04-03")) + 
+  annotate("text",
+           x = as.Date("2020-04-03"),
+           hjust = 0,
+           y = 60,
+           label = "CDC Implements Mask Mandate") +
+  #scale_y_continuous(limits = c(10, 65)) +
+  scale_color_manual(values = c("#8CD17D",
+                                 "#59A14F",
+                                 "#A0CBE8",
+                                 "#4E79A7",
+                                 "#FF9D9A",
+                                 "#E15759")) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) + 
+  guides(color = guide_legend(nrow=3,
+                           byrow=TRUE)) + 
+  labs(title = "Daily Change in Percent of Tweets Labeled as Positive, Negative, or Neutral",
+       x = "Date",
+       y = "Percent (%)")
+#setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+#ggsave("220322_date_vadersentiment_percents_overall_2020.tiff", width = 7.25, height = 4.51)
+```
+
+## Plotting - Percent of Tweets with a Given Sentiment with Comparator Data
+2021
+```{r}
+comparator_2021_date_sentiment_category_only <- comparator_2021 %>%
+  group_by(date_EST) %>%
+  mutate(denominator = n()) %>%
+  group_by(date_EST, sentiment_polarity) %>%
+  summarise(sentiment_per_day = n(),
+            percent_sentiment_per_day = sentiment_per_day/denominator*100) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(sentiment_polarity = toTitleCase(sentiment_polarity),
+         date_indicator = ifelse(date_EST >= as.Date("2021-05-13"), 
+                                 "After Mask Relaxation Policy", 
+                                 "Before Mask Relaxation Policy"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Relaxation Policy",
+                                                            "After Mask Relaxation Policy"))) %>%
+  unite("sentiment_date_combo",
+        sentiment_polarity,
+        date_indicator,
+        sep = " - ",
+        remove = FALSE) %>%
+  mutate(sentiment_date_combo = factor(sentiment_date_combo,
+                                       levels = c("Positive - Before Mask Relaxation Policy",
+                                                  "Positive - After Mask Relaxation Policy",
+                                                  "Neutral - Before Mask Relaxation Policy",
+                                                  "Neutral - After Mask Relaxation Policy",
+                                                  "Negative - Before Mask Relaxation Policy",
+                                                  "Negative - After Mask Relaxation Policy")))
+
+mask_2021_date_sentiment_category_only$data_set <- "Masks"
+comparator_2021_date_sentiment_category_only$data_set <- "Comparator"
+mask_comparator_2021_date_sentiment_category_only <- as.data.frame(rbind(mask_2021_date_sentiment_category_only,
+                                                                         comparator_2021_date_sentiment_category_only))
+
+mask_comparator_2021_date_sentiment_category_only %>%
+  ggplot(aes(x = date_EST,
+      y = percent_sentiment_per_day,
+      color = sentiment_date_combo)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = as.Date("2021-05-13")) + 
+  annotate("text",
+           x = as.Date("2021-05-13"),
+           y = 60,
+           hjust = 0,
+           label = "CDC Relaxes\nMask Guidelines",
+           size = 3) +
+  facet_wrap(~data_set) + 
+  scale_y_continuous(limits = c(10, 65)) +
+  scale_color_manual(values = c("#8CD17D",
+                                 "#59A14F",
+                                 "#A0CBE8",
+                                 "#4E79A7",
+                                 "#FF9D9A",
+                                 "#E15759")) +
+  theme_classic() +
+  theme(legend.position = "bottom") + 
+  guides(color = guide_legend(nrow=3,
+                           byrow=TRUE)) + 
+  labs(title = "Daily Change in Percent of Tweets Labeled as\nPositive, Negative, or Neutral Around May 2021",
+       x = "Date",
+       y = "Percent (%)",
+       color = "Sentiment - Time Period")
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220415_date_vadersentiment_percents_overall_withcomparator.tiff", width = 7.25, height = 4.51)
+
+```
+
+2020
+```{r}
+comparator_2020_date_sentiment_category_only <- comparator_2020 %>%
+  group_by(date_EST) %>%
+  mutate(denominator = n()) %>%
+  group_by(date_EST, sentiment_polarity) %>%
+  summarise(sentiment_per_day = n(),
+            percent_sentiment_per_day = sentiment_per_day/denominator*100) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(sentiment_polarity = toTitleCase(sentiment_polarity),
+         date_indicator = ifelse(date_EST >= as.Date("2020-04-03"), 
+                                 "After Mask Recommendation Policy", 
+                                 "Before Mask Recommendation Policy"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Recommendation Policy",
+                                                            "After Mask Recommendation Policy"))) %>%
+  unite("sentiment_date_combo",
+        sentiment_polarity,
+        date_indicator,
+        sep = " - ",
+        remove = FALSE) %>%
+  mutate(sentiment_date_combo = factor(sentiment_date_combo,
+                                       levels = c("Positive - Before Mask Recommendation Policy",
+                                                  "Positive - After Mask Recommendation Policy",
+                                                  "Neutral - Before Mask Recommendation Policy",
+                                                  "Neutral - After Mask Recommendation Policy",
+                                                  "Negative - Before Mask Recommendation Policy",
+                                                  "Negative - After Mask Recommendation Policy")))
+
+mask_2020_date_sentiment_category_only$data_set <- "Masks"
+comparator_2020_date_sentiment_category_only$data_set <- "Comparator"
+mask_comparator_2020_date_sentiment_category_only <- as.data.frame(rbind(mask_2020_date_sentiment_category_only, comparator_2020_date_sentiment_category_only))
+
+mask_comparator_2020_date_sentiment_category_only %>%
+  ggplot(aes(x = date_EST,
+      y = percent_sentiment_per_day,
+      color = sentiment_date_combo)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = as.Date("2020-04-03")) + 
+  annotate("text",
+           x = as.Date("2020-04-03"),
+           y = 52.5,
+           hjust = 0,
+           label = "CDC Guidelines Recommend Masks",
+           size = 2.75) +
+  facet_wrap(~data_set) + 
+  #scale_y_continuous(limits = c(10, 65)) +
+  scale_color_manual(values = c("#8CD17D",
+                                 "#59A14F",
+                                 "#A0CBE8",
+                                 "#4E79A7",
+                                 "#FF9D9A",
+                                 "#E15759")) +
+  theme_classic() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) + 
+  guides(color = guide_legend(nrow=3,
+                           byrow=TRUE)) + 
+  labs(title = "Daily Change in Percent of Tweets Labeled as\nPositive, Negative, or Neutral Around April 2020",
+       x = "Date",
+       y = "Percent (%)",
+       color = "Sentiment - Time Period")
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220415_date_vadersentiment_percents_overall_withcomparator_2020.tiff", width = 7.25, height = 4.51)
+
+```
+
+## Modeling - Percent of Tweets with Given Sentiment Over Time
+2021
+```{r}
+mask_comparator_2021_date_sentiment_category_only %<>%
+  mutate(pre_post_indicator = case_when(
+    date_EST >= as.Date("2021-05-13") ~ 1,
+    TRUE ~ 0),
+    time_after_counter = difftime(date_EST, 
+                                  as.Date("2021-05-13"),
+                                  units = "days"),
+    time_after_counter = case_when(
+      time_after_counter < 0 ~ 0,
+      TRUE ~ as.numeric(time_after_counter)),
+    sentiment_polarity = factor(sentiment_polarity,
+                                levels = c("Neutral",
+                                           "Positive",
+                                           "Negative")))
+
+
+## Sentiment-Specific Models (Masks Only)
+lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
+                 data_set == "Masks" & sentiment_polarity == "Positive")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
+                 data_set == "Masks" & sentiment_polarity == "Neutral")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
+                 data_set == "Masks" & sentiment_polarity == "Negative")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+## Sentiment-General Models (Masks Only)
+lm(percent_sentiment_per_day ~ sentiment_polarity + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
+                 data_set == "Masks")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+## Sentiment-Specific Models (with Comparator)
+lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
+                 sentiment_polarity == "Positive")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
+                 sentiment_polarity == "Neutral")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2021_date_sentiment_category_only,
+                 sentiment_polarity == "Negative")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+```
+
+2020
+```{r}
+mask_comparator_2020_date_sentiment_category_only %<>%
+  mutate(pre_post_indicator = case_when(
+    date_EST >= as.Date("2020-04-03") ~ 1,
+    TRUE ~ 0),
+    time_after_counter = difftime(date_EST, 
+                                  as.Date("2020-04-03"),
+                                  units = "days"),
+    time_after_counter = case_when(
+      time_after_counter < 0 ~ 0,
+      TRUE ~ as.numeric(time_after_counter)),
+    sentiment_polarity = factor(sentiment_polarity,
+                                levels = c("Neutral",
+                                           "Positive",
+                                           "Negative")))
+
+
+## Sentiment-Specific Models (Masks Only)
+lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2020_date_sentiment_category_only,
+                 data_set == "Masks" & sentiment_polarity == "Positive")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2020_date_sentiment_category_only,
+                 data_set == "Masks" & sentiment_polarity == "Neutral")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(percent_sentiment_per_day ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2020_date_sentiment_category_only,
+                 data_set == "Masks" & sentiment_polarity == "Negative")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+## Sentiment-Specific Models (with Comparator)
+lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2020_date_sentiment_category_only,
+                 sentiment_polarity == "Positive")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2020_date_sentiment_category_only,
+                 sentiment_polarity == "Neutral")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+lm(percent_sentiment_per_day ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(mask_comparator_2020_date_sentiment_category_only,
+                 sentiment_polarity == "Negative")) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value)
+
+```
+
+# Discontinuity Analysis - Number of Tweets
+
+## Plotting - Daily Number of Mask Tweets
+2021
+```{r}
+mask_2021_daily_count_only <- mask_2021_filtered %>%
+  group_by(date_EST) %>%
+  summarise(count_per_day = n()) %>%
+  mutate(before_after_indicator = case_when(
+    date_EST >= as.Date("2021-05-13") ~ "After",
+    TRUE ~ "During"),
+    before_after_indicator = factor(before_after_indicator, 
+                                    levels = c("During", "After")))
+mask_2021_daily_count_only %>%
+  ggplot(aes(x = date_EST,
+             y = count_per_day,
+             color = before_after_indicator)) +
+  geom_point() +
+  #geom_smooth() + 
+  geom_vline(xintercept = as.Date("2021-05-13")) + 
+  annotate("text",
+           x = as.Date("2021-06-01"),
+           y = 15000,
+           label = "CDC Lifts Mask Mandate\nfor Vaccinated Individuals") +
+  theme_classic() +
+  theme(legend.position = "bottom") + 
+  labs(title = "Distribution of Mask-Specific Tweets per Day, March 31, 2021 - June 13, 2021",
+       x = "Date",
+       y = "Number of Tweets",
+       color = "Time Relative to Mask Mandate")
+#setwd("/Volumes/LaCie/Dispersed Volunteer Research Network/Project 14/Output")
+#ggsave("211129_date_numberoftweets.tiff", width = 7.25, height = 4.51)
+```
+
+2020
+```{r}
+mask_2020_daily_count_only <- mask_2020_filtered %>%
+  group_by(date_EST) %>%
+  summarise(count_per_day = n()) %>%
+  mutate(before_after_indicator = case_when(
+    date_EST >= as.Date("2020-04-03") ~ "During",
+    TRUE ~ "Before"),
+    before_after_indicator = factor(before_after_indicator, 
+                                    levels = c("Before", "During")))
+mask_2020_daily_count_only %>%
+  ggplot(aes(x = date_EST,
+             y = count_per_day,
+             color = before_after_indicator)) +
+  geom_point() +
+  geom_smooth() + 
+  geom_vline(xintercept = as.Date("2020-04-03")) + 
+  annotate("text",
+           x = as.Date("2020-04-03"),
+           y = 30000,
+           hjust = 0,
+           label = "CDC Implements Mask Mandate") +
+  theme_classic() +
+  theme(legend.position = "bottom") + 
+  labs(title = "Distribution of Mask-Specific Tweets per Day, February 29, 2020 - June 30, 2020",
+       x = "Date",
+       y = "Number of Tweets",
+       color = "Time Relative to Mask Mandate")
+#setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+#ggsave("211118_date_numberoftweets_2020.tiff", width = 7.25, height = 4.51)
+```
+
+# Discontinuity Analysis - Emotion
+## Plotting - Average Daily Emotion Only
+2021
+```{r}
+mask_2021_date_emotion_only <- mask_2021_filtered %>%
+  select(date_EST, anger_total, anticipation_total, disgust_total, fear_total, trust_total, surprise_total, joy_total, sadness_total) %>%
+  melt(id = "date_EST") %>%
+  group_by(date_EST, variable) %>%
+  summarise(daily_emotion = mean(value)) %>%
+  ungroup() %>%
+  mutate(date_indicator = ifelse(date_EST >= as.Date("2021-05-13"), "After Mask Mandate Lifted", "Before Mask Mandate Lifted"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Mandate Lifted",
+                                                            "After Mask Mandate Lifted")),
+         variable_plot = case_when(
+           variable == "anger_total" ~ "Anger",
+           variable == "anticipation_total" ~ "Anticipation",
+           variable == "disgust_total" ~ "Disgust",
+           variable == "fear_total" ~ "Fear",
+           variable == "trust_total" ~ "Trust",
+           variable == "surprise_total" ~ "Surprise",
+           variable == "joy_total" ~ "Joy",
+           variable == "sadness_total" ~ "Sadness"
+         ))
+mask_2021_date_emotion_only %>%
+  ggplot(aes(x = date_EST,
+             y = daily_emotion,
+             color = date_indicator)) +
+  geom_point(size = 0.25) +
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = as.Date("2021-05-13")) + 
+  facet_wrap(~variable_plot, ncol = 4) + 
+  scale_color_npg() + 
+  annotate("text",
+           x = as.Date("2021-05-13"),
+           y = 0.95,
+           label = "CDC Lifts Mask Mandate\nfor Vaccinated Individuals",
+           size = 1.75,
+           hjust = 0) +
+  scale_x_date(limits = c(as.Date("2021-03-31"),
+                          as.Date("2021-06-25"))) +
+  scale_y_continuous(limits = c(0.10, 1.10)) + 
+  theme_classic() +
+  theme(legend.position = "bottom") + 
+  labs(title = "Daily Change in Emotion",
+       x = "Date",
+       y = "Emotion Score (Sum of Words Tagged a Given Emotion)",
+       color = "Time Period")
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_emotion_overall.tiff", width = 7.25, height = 4.51)
+```
+
+2020
+```{r}
+mask_2020_date_emotion_only <- mask_2020_filtered %>%
+  select(date_EST, anger_total, anticipation_total, disgust_total, fear_total, trust_total, surprise_total, joy_total, sadness_total) %>%
+  melt(id = "date_EST") %>%
+  group_by(date_EST, variable) %>%
+  summarise(daily_emotion = mean(value)) %>%
+  ungroup() %>%
+  mutate(date_indicator = ifelse(date_EST >= as.Date("2020-04-03"), "After Mask Mandate Implemented", "Before Mask Mandate Implemented"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Mandate Implemented",
+                                                            "After Mask Mandate Implemented")),
+         variable_plot = case_when(
+           variable == "anger_total" ~ "Anger",
+           variable == "anticipation_total" ~ "Anticipation",
+           variable == "disgust_total" ~ "Disgust",
+           variable == "fear_total" ~ "Fear",
+           variable == "trust_total" ~ "Trust",
+           variable == "surprise_total" ~ "Surprise",
+           variable == "joy_total" ~ "Joy",
+           variable == "sadness_total" ~ "Sadness"
+         ))
+mask_2020_date_emotion_only %>%
+  ggplot(aes(x = date_EST,
+             y = daily_emotion,
+             color = date_indicator)) +
+  geom_point(size = 0.25) +
+  geom_smooth(method = "lm") + 
+  geom_vline(xintercept = as.Date("2020-04-03")) + 
+  facet_wrap(~variable_plot, ncol = 4) + 
+  scale_color_npg() + 
+  annotate("text",
+           x = as.Date("2020-04-03"),
+           y = 0.95,
+           hjust = 0,
+           label = "CDC Implements Mask Mandate",
+           size = 1.75,
+           hjust = 0) +
+  scale_y_continuous(limits = c(0.10, 1.10)) + 
+  theme_classic() +
+  theme(legend.position = "bottom") + 
+  labs(title = "Daily Change in Emotion",
+       x = "Date",
+       y = "Emotion Score (Sum of Words Tagged a Given Emotion)",
+       color = "Time Period")
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_emotion_overall_2020.tiff", width = 7.25, height = 4.51)
+```
+
+## Plotting - Average Daily Sentiment Comparator
+2021
+```{r}
+comparator_2021_date_emotion_only <- comparator_2021_filtered %>%
+  select(date_EST, anger_total, anticipation_total, disgust_total, fear_total, trust_total, surprise_total, joy_total, sadness_total) %>%
+  melt(id = "date_EST") %>%
+  group_by(date_EST, variable) %>%
+  summarise(daily_emotion = mean(value)) %>%
+  ungroup() %>%
+  mutate(date_indicator = ifelse(date_EST >= as.Date("2021-05-13"), "After Mask Mandate Lifted", "Before Mask Mandate Lifted"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Mandate Lifted",
+                                                            "After Mask Mandate Lifted")),
+         variable_plot = case_when(
+           variable == "anger_total" ~ "Anger",
+           variable == "anticipation_total" ~ "Anticipation",
+           variable == "disgust_total" ~ "Disgust",
+           variable == "fear_total" ~ "Fear",
+           variable == "trust_total" ~ "Trust",
+           variable == "surprise_total" ~ "Surprise",
+           variable == "joy_total" ~ "Joy",
+           variable == "sadness_total" ~ "Sadness"
+         ))
+
+mask_2021_date_emotion_only$data_set <- "Masks"
+comparator_2021_date_emotion_only$data_set <- "Comparator"
+
+masks_comparator_2021_date_emotion_only <- as.data.frame(rbind(mask_2021_date_emotion_only,
+                                                                 comparator_2021_date_emotion_only))
+
+masks_comparator_2021_date_emotion_only %>%
+  unite("indicator_data_combo",
+        data_set,
+        date_indicator,
+        sep = " - ",
+        remove = FALSE) %>%
+  mutate(indicator_data_combo = factor(indicator_data_combo, levels = c("Masks - Before Mask Mandate Lifted",
+                                                                        "Masks - After Mask Mandate Lifted",
+                                                                        "Comparator - Before Mask Mandate Lifted",
+                                                                        "Comparator - After Mask Mandate Lifted"))) %>%
+  ggplot(aes(x = date_EST,
+             y = daily_emotion,
+             color = indicator_data_combo)) +
+  geom_point(size = 0.25) + 
+  geom_smooth(method = "lm") +
+  geom_vline(xintercept = as.Date("2021-05-13")) + 
+  scale_color_npg() + 
+  facet_wrap(~variable_plot) + 
+  theme_classic() +
+  theme(axis.title = element_text(size = 10),
+        legend.position = "bottom") +
+  guides(color = guide_legend(nrow=2,
+                           byrow=TRUE)) + 
+  labs(title = "Daily Change in Emotion",
+       x = "Date",
+       y = "Emotion Score (Sum of Tagged Words with Given Emotion)",
+       color = "Data Set - Time Period")
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_emotion_overall_withcomparator.tiff", width = 7.25, height = 4.51)
+
+```
+
+2020
+```{r}
+comparator_2020_date_emotion_only <- comparator_2020_filtered %>%
+  select(date_EST, anger_total, anticipation_total, disgust_total, fear_total, trust_total, surprise_total, joy_total, sadness_total) %>%
+  melt(id = "date_EST") %>%
+  group_by(date_EST, variable) %>%
+  summarise(daily_emotion = mean(value)) %>%
+  ungroup() %>%
+  mutate(date_indicator = ifelse(date_EST >= as.Date("2020-04-03"), "After Mask Mandate Implemented", "Before Mask Mandate Implemented"),
+         date_indicator = factor(date_indicator, levels = c("Before Mask Mandate Implemented",
+                                                            "After Mask Mandate Implemented")),
+         variable_plot = case_when(
+           variable == "anger_total" ~ "Anger",
+           variable == "anticipation_total" ~ "Anticipation",
+           variable == "disgust_total" ~ "Disgust",
+           variable == "fear_total" ~ "Fear",
+           variable == "trust_total" ~ "Trust",
+           variable == "surprise_total" ~ "Surprise",
+           variable == "joy_total" ~ "Joy",
+           variable == "sadness_total" ~ "Sadness"
+         ))
+
+mask_2020_date_emotion_only$data_set <- "Masks"
+comparator_2020_date_emotion_only$data_set <- "Comparator"
+
+masks_comparator_2020_date_emotion_only <- as.data.frame(rbind(mask_2020_date_emotion_only,
+                                                                 comparator_2020_date_emotion_only))
+
+masks_comparator_2020_date_emotion_only %>%
+  unite("indicator_data_combo",
+        data_set,
+        date_indicator,
+        sep = " - ",
+        remove = FALSE) %>%
+  mutate(indicator_data_combo = factor(indicator_data_combo, levels = c("Masks - Before Mask Mandate Implemented",
+                                                                        "Masks - After Mask Mandate Implemented",
+                                                                        "Comparator - Before Mask Mandate Implemented",
+                                                                        "Comparator - After Mask Mandate Implemented"))) %>%
+  ggplot(aes(x = date_EST,
+             y = daily_emotion,
+             color = indicator_data_combo)) +
+  geom_point(size = 0.25) + 
+  geom_smooth(method = "lm") +
+  geom_vline(xintercept = as.Date("2020-04-03")) + 
+  scale_color_npg() + 
+  facet_wrap(~variable_plot) + 
+  theme_classic() +
+  theme(axis.title = element_text(size = 10),
+        legend.position = "bottom") +
+  guides(color = guide_legend(nrow=2,
+                           byrow=TRUE)) + 
+  labs(title = "Daily Change in Emotion",
+       x = "Date",
+       y = "Emotion Score (Sum of Tagged Words with Given Emotion)",
+       color = "Data Set - Time Period")
+setwd("/Users/catherinepollack/Documents/dispersed_volunteer_research_network/project_14/figures")
+ggsave("220322_date_emotion_overall_withcomparator_2020.tiff", width = 7.25, height = 4.51)
+
+```
+
+## Modeling - Change in Average Daily Compound Sentiment Score Over Time
+2021
+```{r}
+masks_comparator_2021_date_emotion_only %<>%
+  mutate(pre_post_indicator = case_when(
+    date_EST >= as.Date("2021-05-13") ~ 1,
+    TRUE ~ 0),
+    time_after_counter = difftime(date_EST, 
+                                  as.Date("2021-05-13"),
+                                  units = "days"),
+    time_after_counter = case_when(
+      time_after_counter < 0 ~ 0,
+      TRUE ~ as.numeric(time_after_counter)))
+
+for (emote in unique(masks_comparator_2021_date_emotion_only$variable)) {
+  base::print(lm(daily_emotion ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(masks_comparator_2021_date_emotion_only,
+                 data_set == "Masks" &
+                 variable == emote)) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value) %>%
+    mutate(term = case_when(
+      term == "(Intercept)" ~ emote,
+      TRUE ~ term
+    )))
+}
+
+for (emote in unique(masks_comparator_2021_date_emotion_only$variable)) {
+  base::print(lm(daily_emotion ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(masks_comparator_2021_date_emotion_only,
+                 variable == emote)) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value) %>%
+    mutate(term = case_when(
+      term == "(Intercept)" ~ emote,
+      TRUE ~ term
+    )))
+}
+
+```
+
+2020
+```{r}
+masks_comparator_2020_date_emotion_only %<>%
+  mutate(pre_post_indicator = case_when(
+    date_EST >= as.Date("2020-04-03") ~ 1,
+    TRUE ~ 0),
+    time_after_counter = difftime(date_EST, 
+                                  as.Date("2020-04-03"),
+                                  units = "days"),
+    time_after_counter = case_when(
+      time_after_counter < 0 ~ 0,
+      TRUE ~ as.numeric(time_after_counter)))
+
+for (emote in unique(masks_comparator_2020_date_emotion_only$variable)) {
+  base::print(lm(daily_emotion ~ date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(masks_comparator_2020_date_emotion_only,
+                 data_set == "Masks" &
+                 variable == emote)) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value) %>%
+    mutate(term = case_when(
+      term == "(Intercept)" ~ emote,
+      TRUE ~ term
+    )))
+}
+
+for (emote in unique(masks_comparator_2020_date_emotion_only$variable)) {
+  base::print(lm(daily_emotion ~ data_set + date_EST + pre_post_indicator + time_after_counter,
+   data = dplyr::filter(masks_comparator_2020_date_emotion_only,
+                 variable == emote)) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high, p.value) %>%
+    mutate(term = case_when(
+      term == "(Intercept)" ~ emote,
+      TRUE ~ term
+    )))
+}
+
+```
